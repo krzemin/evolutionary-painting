@@ -8,9 +8,9 @@ object EvolutionaryPainting extends App {
 
   val rand = new Random()
 
-  val iterations = 1000000
+  val iterations = 999999
   val rRatio = 0.8
-  val initShapes = 1
+  val initShapes = 0
   val addFreq = 0.22
   val delFreq = 0.21
   val mutFreq = 0.02
@@ -20,11 +20,11 @@ object EvolutionaryPainting extends App {
   val mutAlphaRatio = 0.1
   val minAlpha = 10
   val maxAlpha = 60
-  val maxShapes = 300
+  val maxShapes = 150
   val minPoly = 3
-  val maxPoly = 6
+  val maxPoly = 12
 
-  val img: BufferedImage = ImageIO.read(new File("images/rynek2.png"))
+  val img: BufferedImage = ImageIO.read(new File("monalisa.png"))
   val (w, h) = (img.getWidth, img.getHeight)
   val diagonal = math.sqrt(w*w + h*h).toInt / 4 * 3
 
@@ -110,14 +110,13 @@ object EvolutionaryPainting extends App {
     }
   }
 
-
-
   type DNA = Vector[Shape]
 
   object DNA {
     def makeOne: Shape = Polygon.random
     def make: DNA = Vector.fill(initShapes)(makeOne)
-    def randomDel(dna: DNA): DNA = dna.patch(rand.nextInt(dna.size), Nil, 1)
+    def randomDel(dna: DNA): DNA =
+      if(dna.isEmpty) dna else dna.patch(rand.nextInt(dna.size), Nil, 1)
     def randomAdd(dna: DNA): DNA =
       makeOne +: (if(dna.size < maxShapes) dna else randomDel(dna))
     def randomMut(dna: DNA): DNA =
@@ -158,6 +157,7 @@ object EvolutionaryPainting extends App {
   var parentFitness = DNA.fitness(pImg)
   out.println(s"000000 ${DNA.fitness(pImg)}")
   ImageIO.write(pImg, "png", new File(s"images/000000.png"))
+  var lastImgDump = 0
 
   for(iter <- 1 to iterations) {
     val strIter = "%06d".format(iter)
@@ -176,7 +176,11 @@ object EvolutionaryPainting extends App {
       parentFitness = bestChildFitness
       out.println(s"$strIter $parentFitness ${parent.size}")
       parent = bestChild
-      ImageIO.write(bestChildImg, "png", new File(s"images/$strIter.png"))
+      if(iter / 100 > lastImgDump) {
+        ImageIO.write(bestChildImg, "png", new File(s"images/$strIter.png"))
+        lastImgDump = iter / 100
+      }
+
     }
   }
 
