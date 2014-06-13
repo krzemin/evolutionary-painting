@@ -10,19 +10,18 @@ object EvolutionaryPainting extends App {
 
   val iterations = 999999
   val rRatio = 0.8
-  val initShapes = 0
-  val addFreq = 0.22
-  val delFreq = 0.21
-  val mutFreq = 0.02
+  val initShapes = 1
+  val addFreq = 0.02
+  val delFreq = 0.4
+  val mutFreq = 0.1
   val mutCoordRatio = 0.33
   val mutRRatio = 0.45
-  val mutColorRatio = 0.15
-  val mutAlphaRatio = 0.1
+  val mutColorRatio = 0.4
+  val mutAlphaRatio = 0.2
   val minAlpha = 10
-  val maxAlpha = 60
-  val maxShapes = 150
-  val minPoly = 3
-  val maxPoly = 12
+  val maxAlpha = 80
+  val maxShapes = 50
+  val (minPoly, maxPoly) = (3, 9)
 
   val img: BufferedImage = ImageIO.read(new File("monalisa.png"))
   val (w, h) = (img.getWidth, img.getHeight)
@@ -83,15 +82,24 @@ object EvolutionaryPainting extends App {
       g.fillPolygon(xs, ys, xs.length)
     }
     def mutated: Polygon = {
-      val xs2 = xs.map(x => x + ((rand.nextGaussian() - 0.5) * diagonal * mutCoordRatio).toInt)
-      val ys2 = ys.map(y => y + ((rand.nextGaussian() - 0.5) * diagonal * mutCoordRatio).toInt)
-      val cMut = new Color(
+      val n = xs.length
+
+      lazy val xs2 = xs.map(x =>
+        if(rand.nextInt(n) != 0) x
+        else x + ((rand.nextGaussian() - 0.5) * diagonal * mutCoordRatio).toInt
+      )
+      lazy val ys2 = ys.map(y =>
+        if(rand.nextInt(n) != 0) y
+        else y + ((rand.nextGaussian() - 0.5) * diagonal * mutCoordRatio).toInt
+      )
+      lazy val cMut = new Color(
         (c.getRed + ((rand.nextGaussian() - 0.5) * 255 * mutColorRatio).toInt).max(0).min(255),
         (c.getGreen + ((rand.nextGaussian() - 0.5) * 255 * mutColorRatio).toInt).max(0).min(255),
         (c.getBlue + ((rand.nextGaussian() - 0.5) * 255 * mutColorRatio).toInt).max(0).min(255),
         (c.getAlpha + ((rand.nextGaussian() - 0.5) * (maxAlpha - minAlpha) * mutAlphaRatio).toInt).max(minAlpha).min(maxAlpha)
       )
-      copy(xs2, ys2, cMut)
+      if(rand.nextInt(2) == 0) copy(xs2, ys2, c)
+      else copy(xs, ys, cMut)
     }
   }
 
@@ -115,14 +123,29 @@ object EvolutionaryPainting extends App {
   object DNA {
     def makeOne: Shape = Polygon.random
     def make: DNA = Vector.fill(initShapes)(makeOne)
-    def randomDel(dna: DNA): DNA =
-      if(dna.isEmpty) dna else dna.patch(rand.nextInt(dna.size), Nil, 1)
+    def randomDel(dna: DNA): DNA = {
+      val n = dna.size
+      dna.filter(_ => rand.nextInt(n) > 0)
+    }
     def randomAdd(dna: DNA): DNA =
-      makeOne +: (if(dna.size < maxShapes) dna else randomDel(dna))
+      makeOne +: (if(dna.size < maxShapes) dna else randomDel(randomDel(dna)))
     def randomMut(dna: DNA): DNA =
       dna.map(c => if(rand.nextDouble() < mutFreq) c.mutated else c).toVector
     def randomShuffle(dna: DNA): DNA =
       rand.shuffle(dna).toVector
+
+    def mutate(dna: DNA): DNA = {
+      val ops: List[(Double, DNA => DNA)] =
+        List(delFreq -> randomDel, addFreq -> randomAdd, mutFreq -> randomMut)
+
+      val opsOpts = ops.map {
+        case (freq, f) => if (rand.nextDouble() < freq) Some(f) else None
+      }
+
+      var result = dna
+      opsOpts.foreach(fOpt => fOpt.foreach(f => result = f(result)))
+      result
+    }
 
     def draw(dna: DNA): BufferedImage = {
       val image = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB)
@@ -134,8 +157,8 @@ object EvolutionaryPainting extends App {
       }
       image
     }
-    def fitness(dnaImg: BufferedImage): Long = {
-      var total: Long = 0L
+    def fitness(dnaImg: BufferedImage): Int = {
+      var total = 0
       for(y <- 0 until h; x <- 0 until w) {
         val rgbImg = img.getRGB(x, y)
         val rgbDna = dnaImg.getRGB(x, y)
@@ -162,9 +185,8 @@ object EvolutionaryPainting extends App {
   for(iter <- 1 to iterations) {
     val strIter = "%06d".format(iter)
 
-    val funs: List[DNA => DNA] = List(DNA.randomShuffle, DNA.randomDel, DNA.randomAdd, DNA.randomMut)
-    val imagesWithFitness = funs.par.map { f =>
-      val child = f(parent)
+    val imagesWithFitness = (1 to 4).par.map { f =>
+      val child = DNA.mutate(parent)
       val image = DNA.draw(child)
       val fitness = DNA.fitness(image)
       (child, image, fitness)
@@ -176,7 +198,7 @@ object EvolutionaryPainting extends App {
       parentFitness = bestChildFitness
       out.println(s"$strIter $parentFitness ${parent.size}")
       parent = bestChild
-      if(iter / 100 > lastImgDump) {
+      if(iter < 1000 || iter / 100 > lastImgDump) {
         ImageIO.write(bestChildImg, "png", new File(s"images/$strIter.png"))
         lastImgDump = iter / 100
       }
