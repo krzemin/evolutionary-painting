@@ -9,7 +9,7 @@ object EvolutionaryPainting extends App {
   val rand = new Random()
 
   val iterations = 1000000
-  val rRatio = 0.1
+  val rRatio = 0.04
   val initCircles = 5
   val addFreq = 0.22
   val delFreq = 0.21
@@ -20,31 +20,33 @@ object EvolutionaryPainting extends App {
   val mutAlphaRatio = 0.1
   val minAlpha = 60
   val maxAlpha = 180
-  val maxCircles = 10000
+  val maxCircles = 5000
 
   val img: BufferedImage = ImageIO.read(new File("images/rynek2.png"))
   val (w, h) = (img.getWidth, img.getHeight)
   val diagonal = math.sqrt(w*w + h*h).toInt / 4 * 3
 
-  case class Circle(x: Int, y: Int, r: Int, c: Color)
+  case class Oval(x: Int, y: Int, r1: Int, r2: Int, c: Color)
 
-  object Circle {
-    def apply(): Circle = {
-      val r = 1 + rand.nextInt((diagonal * rRatio).toInt)
-      val x = rand.nextInt(w - r)
-      val y = rand.nextInt(h - r)
+  object Oval {
+    def apply(): Oval = {
+      val r1 = 1 + rand.nextInt((diagonal * rRatio).toInt)
+      val r2 = 1 + rand.nextInt((diagonal * rRatio).toInt)
+      val x = rand.nextInt(w - r1)
+      val y = rand.nextInt(h - r2)
       val c = new Color(
         rand.nextInt(256),
         rand.nextInt(256),
         rand.nextInt(256),
         minAlpha + rand.nextInt(maxAlpha - minAlpha)
       )
-      Circle(x, y, r, c)
+      Oval(x, y, r1, r2, c)
     }
-    def mutate(circle: Circle): Circle = {
-      val xMut = circle.x + ((rand.nextGaussian() - 0.5) * circle.r * mutCoordRatio).toInt
-      val yMut = circle.y + ((rand.nextGaussian() - 0.5) * circle.r * mutCoordRatio).toInt
-      val rMut = circle.r //+ ((rand.nextGaussian() - 0.5) * circle.r * mutRRatio).toInt
+    def mutate(circle: Oval): Oval = {
+      val xMut = circle.x + ((rand.nextGaussian() - 0.5) * circle.r2 * mutCoordRatio).toInt
+      val yMut = circle.y + ((rand.nextGaussian() - 0.5) * circle.r1 * mutCoordRatio).toInt
+      val r1Mut = circle.r1 //+ ((rand.nextGaussian() - 0.5) * circle.r * mutRRatio).toInt
+      val r2Mut = circle.r2
       val cMut = new Color(
         (circle.c.getRed + ((rand.nextGaussian() - 0.5) * 255 * mutColorRatio).toInt).max(0).min(255),
         (circle.c.getGreen + ((rand.nextGaussian() - 0.5) * 255 * mutColorRatio).toInt).max(0).min(255),
@@ -52,23 +54,23 @@ object EvolutionaryPainting extends App {
         (circle.c.getAlpha + ((rand.nextGaussian() - 0.5) * (maxAlpha - minAlpha) * mutAlphaRatio).toInt).max(minAlpha).min(maxAlpha)
       )
       circle.copy(
-        xMut.max(0).min(w - rMut),
-        yMut.max(0).min(h - rMut),
-        rMut.max(1),
+        xMut.max(0).min(w - r1Mut),
+        yMut.max(0).min(h - r2Mut),
+        r1Mut.max(1),
+        r2Mut.max(1),
         cMut)
     }
   }
 
-  type DNA = Vector[Circle]
+  type DNA = Vector[Oval]
 
   object DNA {
-    def make: DNA = Vector.fill(initCircles)(Circle())
+    def make: DNA = Vector.fill(initCircles)(Oval())
     def randomDel(dna: DNA): DNA = dna.patch(rand.nextInt(dna.size), Nil, 1)
     def randomAdd(dna: DNA): DNA =
-      Circle() +: (if(dna.size < maxCircles) dna else randomDel(dna))
-
+      Oval() +: (if(dna.size < maxCircles) dna else randomDel(dna))
     def randomMut(dna: DNA): DNA =
-      dna.par.map(c => if(rand.nextDouble() < mutFreq) Circle.mutate(c) else c).toVector
+      dna.map(c => if(rand.nextDouble() < mutFreq) Oval.mutate(c) else c).toVector
 
     def draw(dna: DNA): BufferedImage = {
       val image = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB)
@@ -77,7 +79,7 @@ object EvolutionaryPainting extends App {
       g.fillRect(0, 0, w, h)
       dna.foreach { circle =>
         g.setColor(circle.c)
-        g.fillOval(circle.x, circle.y, circle.r, circle.r)
+        g.fillOval(circle.x, circle.y, circle.r1, circle.r2)
       }
       image
     }
@@ -108,7 +110,7 @@ object EvolutionaryPainting extends App {
   for(iter <- 1 to iterations) {
     val strIter = "%06d".format(iter)
 
-    val funs: List[DNA => DNA] = List(x => x, DNA.randomDel, DNA.randomAdd, DNA.randomMut)
+    val funs: List[DNA => DNA] = List(DNA.randomAdd, DNA.randomDel, DNA.randomAdd, DNA.randomMut)
     val imagesWithFitness = funs.par.map { f =>
       val child = f(parent)
       val image = DNA.draw(child)
