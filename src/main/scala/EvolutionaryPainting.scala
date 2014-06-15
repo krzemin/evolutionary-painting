@@ -11,7 +11,7 @@ object EvolutionaryPainting extends App {
   val iterations = 999999
   val initShapes = 1
   val shuffleFreq = 0.001
-  val addFreq = 0.001
+  val addFreq = 0.0001
   val delFreq = 0.001
   val mutFreq = 0.002
   val mutCoordRange = -20 to 20
@@ -19,10 +19,10 @@ object EvolutionaryPainting extends App {
   val mutColorRange = -30 to 30
   val mutAlphaRange = -10 to 10
   val alphaRange = 10 to 60
-  val maxShapes = 150
-  val (minPoly, maxPoly) = (3, 9)
-  val (polyAddFreq, polyDelFreq) = (0.3, 0.5)
-  val (polyMutFreq, polyMutRange) = (0.2, -20 to 20)
+  val maxShapes = 100
+  val (minPoly, maxPoly) = (3, 11)
+  val (polyAddFreq, polyDelFreq) = (0.005, 0.05)
+  val (polyMutFreq, polyMutRange) = (0.1, -20 to 20)
 
   val img: BufferedImage = ImageIO.read(new File("monalisa.png"))
   val outdir = "images"
