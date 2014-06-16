@@ -11,7 +11,7 @@ object EvolutionaryPainting extends App {
   val iterations = 999999
   val initShapes = 1
   val shuffleFreq = 0.001
-  val addFreq = 0.0001
+  val addFreq = 0.0006
   val delFreq = 0.001
   val mutFreq = 0.002
   val mutCoordRange = -20 to 20
@@ -19,8 +19,8 @@ object EvolutionaryPainting extends App {
   val mutColorRange = -30 to 30
   val mutAlphaRange = -10 to 10
   val alphaRange = 10 to 60
-  val maxShapes = 100
-  val (minPoly, maxPoly) = (3, 11)
+  val maxShapes = 200
+  val (minPoly, maxPoly) = (3, 10)
   val (polyAddFreq, polyDelFreq) = (0.005, 0.05)
   val (polyMutFreq, polyMutRange) = (0.1, -20 to 20)
 
@@ -28,7 +28,6 @@ object EvolutionaryPainting extends App {
   val outdir = "images"
   val plotfile = "plot.data"
   val (w, h) = (img.getWidth, img.getHeight)
-  val diagonal = math.sqrt(w*w + h*h).toInt / 4 * 3
 
   trait Shape {
     val c: Color
@@ -63,10 +62,12 @@ object EvolutionaryPainting extends App {
       val rr2 = 1 + rand.nextInt(mutRRange.size)
       val rx = rand.nextInt(w)
       val ry = rand.nextInt(h)
+      val rgb = new Color(img.getRGB(rx + rr1 >> 1, ry + rr2 >> 1))
       val rc = new Color(
-        rand.nextInt(256),
-        rand.nextInt(256),
-        rand.nextInt(256),
+        rgb.getRed, rgb.getGreen, rgb.getBlue,
+//        rand.nextInt(256),
+//        rand.nextInt(256),
+//        rand.nextInt(256),
         alphaRange(rand.nextInt(alphaRange.size))
       )
       Oval(rx, ry, rr1, rr2, rc)
@@ -86,10 +87,12 @@ object EvolutionaryPainting extends App {
       val rr2 = 1 + rand.nextInt(mutRRange.size)
       val rx = rand.nextInt(w)
       val ry = rand.nextInt(h)
+      val rgb = new Color(img.getRGB(rx + rr1 >> 1, ry + rr2 >> 1))
       val rc = new Color(
-        rand.nextInt(256),
-        rand.nextInt(256),
-        rand.nextInt(256),
+        rgb.getRed, rgb.getGreen, rgb.getBlue,
+        //        rand.nextInt(256),
+        //        rand.nextInt(256),
+        //        rand.nextInt(256),
         alphaRange(rand.nextInt(alphaRange.size))
       )
       new Rect(rx, ry, rr1, rr2, rc)
@@ -135,11 +138,17 @@ object EvolutionaryPainting extends App {
   object Polygon {
     def random = {
       val n = minPoly//rand.nextInt(maxPoly - minPoly) + minPoly
-      val ps = Vector.fill(n)((rand.nextInt(w),rand.nextInt(h)))
+      val (sx, sy) = (rand.nextInt(w), rand.nextInt(h))
+      val ps = (sx,sy) +: Vector.fill(n-1)(
+        (sx + polyMutRange(rand.nextInt(polyMutRange.size)),
+         sy + polyMutRange(rand.nextInt(polyMutRange.size)))
+      )
+      val rgb = new Color(img.getRGB(ps.head._1, ps.head._2))
       val c = new Color(
-        rand.nextInt(256),
-        rand.nextInt(256),
-        rand.nextInt(256),
+        rgb.getRed, rgb.getGreen, rgb.getBlue,
+        //        rand.nextInt(256),
+        //        rand.nextInt(256),
+        //        rand.nextInt(256),
         alphaRange(rand.nextInt(alphaRange.size))
       )
       Polygon(ps, c)
@@ -150,10 +159,10 @@ object EvolutionaryPainting extends App {
 
   object DNA {
     def makeOne: Shape =
-      rand.nextInt(3) match {
-        case 0 => Polygon.random
-        case 1 => Rect.random
-        case 2 => Oval.random
+      rand.nextInt(100) match {
+        case n if n < 80 => Polygon.random
+        case n if n < 95 => Rect.random
+        case _ => Oval.random
       }
     def make: DNA = Vector.fill(initShapes)(makeOne)
     def randomDel(dna: DNA): DNA = {
@@ -223,8 +232,8 @@ object EvolutionaryPainting extends App {
   for(iter <- 1 to iterations) {
     val strIter = "%06d".format(iter)
 
-    val imagesWithFitness = (1 to 4).par.map { k =>
-      val child = (1 to k).map(_ => {x: DNA => DNA.mutate(x)}).foldLeft(parent){case (x,f) => f(x)}
+    val imagesWithFitness = (1 to 4).par.map { _ =>
+      val child = DNA.mutate(parent)//(1 to k).map(_ => {x: DNA => DNA.mutate(x)}).foldLeft(parent){case (x,f) => f(x)}
       val image = DNA.draw(child)
       val fitness = DNA.fitness(image)
       (child, image, fitness)
