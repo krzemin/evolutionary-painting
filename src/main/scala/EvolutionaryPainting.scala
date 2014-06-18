@@ -6,9 +6,18 @@ import scala.util.Random
 
 object EvolutionaryPainting extends App {
 
+  if(args.length != 4) {
+    println("usage: <exec> image_file output_dir log_file iterations")
+    System.exit(1)
+  }
+
+  val img_file = args(0)
+  val outdir = args(1)
+  val plotfile = args(2)
+  val iterations = args(3).toInt
+
   val rand = new Random()
 
-  val iterations = 999999
   val initShapes = 1
   val shuffleFreq = 0.001
   val addFreq = 0.0006
@@ -24,9 +33,7 @@ object EvolutionaryPainting extends App {
   val (polyAddFreq, polyDelFreq) = (0.005, 0.05)
   val (polyMutFreq, polyMutRange) = (0.1, -20 to 20)
 
-  val img: BufferedImage = ImageIO.read(new File("monalisa.png"))
-  val outdir = "images"
-  val plotfile = "plot.data"
+  val img: BufferedImage = ImageIO.read(new File(img_file))
   val (w, h) = (img.getWidth, img.getHeight)
 
   trait Shape {
@@ -210,6 +217,7 @@ object EvolutionaryPainting extends App {
 
     if(bestChildFitness < parentFitness) {
       parentFitness = bestChildFitness
+      println(s"$strIter $parentFitness ${parent.size}")
       out.println(s"$strIter $parentFitness ${parent.size}")
       parent = bestChild
 
